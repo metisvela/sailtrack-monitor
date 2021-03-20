@@ -1,2 +1,2 @@
 # SailTrack Monitor
-Repository containing the code of the monitor node of the SailTrack system.
+Repository containing the code of the monitor module of the SailTrack system.

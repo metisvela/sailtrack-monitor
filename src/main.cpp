@@ -51,7 +51,7 @@ struct MonitorMetric {
 EpdFontProperties fontProps = epd_font_properties_default();
 EpdRotation orientation = EPD_ROT_PORTRAIT;
 EpdiyHighlevelState hl;
-int temperature = 20;
+int temperature = 25;
 uint8_t *fb;
 
 class ModuleCallbacks: public SailtrackModuleCallbacks {
@@ -84,7 +84,7 @@ class ModuleCallbacks: public SailtrackModuleCallbacks {
 };
 
 void monitorTask(void * pvArguments) {
-    int clearScreen = CLEAR_MONITOR_CYCLES;
+    int updateCycles = 0;
     while (true) {
         epd_hl_set_all_white(&hl);
         for (auto metric : monitorMetrics) {
@@ -92,8 +92,7 @@ void monitorTask(void * pvArguments) {
             char unit[3];
             int cursorX = metric.slot.cursorX;
             int cursorY = metric.slot.cursorY;
-            if (metric.type == SPEED) sprintf(digits, "%.1f", metric.value);
-            else if (metric.type == ANGLE) sprintf(digits, "%d", (int)round(metric.value));
+            sprintf(digits, metric.type == SPEED ? "%.1f" : "%.0f", metric.value);
             fontProps.flags = EPD_DRAW_ALIGN_RIGHT;
             epd_write_string(&DSEG14Classic_Regular_100, digits, &cursorX, &cursorY, fb, &fontProps);
             fontProps.flags = EPD_DRAW_ALIGN_LEFT;
@@ -108,10 +107,12 @@ void monitorTask(void * pvArguments) {
                 epd_write_string(&BebasNeue_Regular_60, unit, &cursorX, &cursorY, fb, &fontProps);
             }
         }
-        if (!clearScreen--) {
-            epd_fullclear(&hl, temperature);
-            clearScreen = CLEAR_MONITOR_CYCLES;
-        } else epd_hl_update_screen(&hl, MODE_GL16, temperature);
+        if (!updateCycles) {
+            epd_clear();
+            epd_hl_set_all_white(&hl);
+        }
+        epd_hl_update_screen(&hl, updateCycles ? MODE_GL16 : MODE_EPDIY_WHITE_TO_GL16, temperature);
+        updateCycles = (updateCycles + 1) % CLEAR_MONITOR_CYCLES_INTERVAL;
         delay(MONITOR_UPDATE_PERIOD_MS);
     }
 }
@@ -121,11 +122,13 @@ void beginEPD() {
     hl = epd_hl_init(WAVEFORM);
     epd_set_rotation(orientation);
     fb = epd_hl_get_framebuffer(&hl);
-    epd_clear();
     epd_poweron();
-    epd_draw_rotated_image({130, 340, SailtrackLogo_width, SailtrackLogo_height}, SailtrackLogo_data, fb);
-    epd_draw_rotated_image({203, 880, MetisLogo_width, MetisLogo_height}, MetisLogo_data, fb);
-    epd_hl_update_screen(&hl, MODE_GL16, temperature);
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
+        epd_clear();
+        epd_draw_rotated_image({130, 340, SailtrackLogo_width, SailtrackLogo_height}, SailtrackLogo_data, fb);
+        epd_draw_rotated_image({203, 880, MetisLogo_width, MetisLogo_height}, MetisLogo_data, fb);
+        epd_hl_update_screen(&hl, MODE_GL16, temperature);
+    }
 }
 
 void setup() {

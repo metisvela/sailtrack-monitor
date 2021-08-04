@@ -4,7 +4,6 @@
 #include "epd_highlevel.h"
 #include "DSEG14Classic_Regular_100.h"
 #include "BebasNeue_Regular_40.h"
-#include "BebasNeue_Regular_60.h"
 #include "SailtrackLogo.h"
 #include "MetisLogo.h"
 #include "SailtrackModule.h"
@@ -20,12 +19,12 @@
 #define MONITOR_UPDATE_PERIOD_MS 1000 / MONITOR_UPDATE_RATE
 
 #define MONITOR_SLOT_0 { 470, 227 }
-#define MONITOR_SLOT_1 { 470, 454 }
-#define MONITOR_SLOT_2 { 470, 681 }
-#define MONITOR_SLOT_3 { 470, 908 }
+#define MONITOR_SLOT_1 { 470, 463 }
+#define MONITOR_SLOT_2 { 470, 690 }
+#define MONITOR_SLOT_3 { 470, 917 }
 
 #define WAVEFORM EPD_BUILTIN_WAVEFORM
-#define CLEAR_MONITOR_CYCLES 4000
+#define CLEAR_MONITOR_CYCLES_INTERVAL 4000
 
 enum MetricType { SPEED, ANGLE };
 
@@ -38,14 +37,15 @@ struct MonitorMetric {
     float value;
     char topic[20];
     char name[10];
+    char displayName[10];
     double multiplier;
     MetricType type;
     MonitorSlot slot;
 } monitorMetrics[] = {
-    {0, "sensor/gps0", "speed", MMS_TO_KNOTS_MULTIPLIER, SPEED, MONITOR_SLOT_0},
-    {0, "sensor/gps0", "heading", UDEGREE_TO_DEGREE_MULTIPLIER, ANGLE, MONITOR_SLOT_1}
-    //{0, "metric/boat", "sog", IDENTITY_MULTIPLIER, SPEED, MONITOR_SLOT_2},
-    //{0, "metric/boat", "cog", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_3}
+    {0, "sensor/gps0", "speed", "SOG", MMS_TO_KNOTS_MULTIPLIER, SPEED, MONITOR_SLOT_0},
+    {0, "sensor/gps0", "heading", "COG", UDEGREE_TO_DEGREE_MULTIPLIER, ANGLE, MONITOR_SLOT_1},
+    {0, "sensor/imu0", "euler.x", "HDG", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_2},
+    {0, "sensor/imu0", "euler.y", "RLL", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_3}
 };
 
 EpdFontProperties fontProps = epd_font_properties_default();
@@ -77,9 +77,19 @@ class ModuleCallbacks: public SailtrackModuleCallbacks {
         deserializeJson(payload, message);
         for (int i = 0; i < sizeof(monitorMetrics); i++) {
             MonitorMetric & metric = monitorMetrics[i];
-            if (!strcmp(topic, metric.topic) && payload.containsKey(metric.name))
-                metric.value = payload[metric.name].as<float>() * metric.multiplier;
-        }   
+            if (!strcmp(topic, metric.topic)) {
+                char metricName[sizeof(metric.name)];
+                strcpy(metricName, metric.name);
+                char * token = strtok(metricName, ".");
+                JsonVariant tmpVal = payload.as<JsonVariant>();
+                while (token != NULL) {
+                    if (!tmpVal.containsKey(token)) return;
+                    tmpVal = tmpVal[token];
+                    token = strtok(NULL, ".");
+                }
+                metric.value = tmpVal.as<float>() * metric.multiplier;   
+            }
+        }
     }
 };
 
@@ -89,23 +99,17 @@ void monitorTask(void * pvArguments) {
         epd_hl_set_all_white(&hl);
         for (auto metric : monitorMetrics) {
             char digits[5];
-            char unit[3];
+            char displayName[7];
             int cursorX = metric.slot.cursorX;
             int cursorY = metric.slot.cursorY;
             sprintf(digits, metric.type == SPEED ? "%.1f" : "%.0f", metric.value);
             fontProps.flags = EPD_DRAW_ALIGN_RIGHT;
             epd_write_string(&DSEG14Classic_Regular_100, digits, &cursorX, &cursorY, fb, &fontProps);
-            fontProps.flags = EPD_DRAW_ALIGN_LEFT;
-            cursorX = metric.slot.cursorX + 5;
-            if (metric.type == SPEED) {
-                cursorY = metric.slot.cursorY - 130;
-                sprintf(unit, "kt");
-                epd_write_string(&BebasNeue_Regular_40, unit, &cursorX, &cursorY, fb, &fontProps);
-            } else if (metric.type == ANGLE) {
-                cursorY = metric.slot.cursorY - 110;
-                sprintf(unit, "°");
-                epd_write_string(&BebasNeue_Regular_60, unit, &cursorX, &cursorY, fb, &fontProps);
-            }
+            fontProps.flags = EPD_DRAW_ALIGN_CENTER;
+            cursorX = metric.slot.cursorX + 33;
+            cursorY = metric.slot.cursorY - 140;
+            sprintf(displayName, "%c\n%c\n%c", metric.displayName[0], metric.displayName[1], metric.displayName[2]);
+            epd_write_string(&BebasNeue_Regular_40, displayName, &cursorX, &cursorY, fb, &fontProps);
         }
         if (!updateCycles) {
             epd_clear();

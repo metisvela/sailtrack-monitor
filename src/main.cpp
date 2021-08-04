@@ -25,6 +25,7 @@
 #define MONITOR_SLOT_3 { 470, 908 }
 
 #define WAVEFORM EPD_BUILTIN_WAVEFORM
+#define CLEAR_MONITOR_CYCLES 4000
 
 enum MetricType { SPEED, ANGLE };
 
@@ -42,9 +43,9 @@ struct MonitorMetric {
     MonitorSlot slot;
 } monitorMetrics[] = {
     {0, "sensor/gps0", "speed", MMS_TO_KNOTS_MULTIPLIER, SPEED, MONITOR_SLOT_0},
-    {0, "sensor/gps0", "heading", UDEGREE_TO_DEGREE_MULTIPLIER, ANGLE, MONITOR_SLOT_1},
-    {0, "metric/boat", "sog", IDENTITY_MULTIPLIER, SPEED, MONITOR_SLOT_2},
-    {0, "metric/boat", "cog", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_3}
+    {0, "sensor/gps0", "heading", UDEGREE_TO_DEGREE_MULTIPLIER, ANGLE, MONITOR_SLOT_1}
+    //{0, "metric/boat", "sog", IDENTITY_MULTIPLIER, SPEED, MONITOR_SLOT_2},
+    //{0, "metric/boat", "cog", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_3}
 };
 
 EpdFontProperties fontProps = epd_font_properties_default();
@@ -83,6 +84,7 @@ class ModuleCallbacks: public SailtrackModuleCallbacks {
 };
 
 void monitorTask(void * pvArguments) {
+    int clearScreen = CLEAR_MONITOR_CYCLES;
     while (true) {
         epd_hl_set_all_white(&hl);
         for (auto metric : monitorMetrics) {
@@ -106,7 +108,10 @@ void monitorTask(void * pvArguments) {
                 epd_write_string(&BebasNeue_Regular_60, unit, &cursorX, &cursorY, fb, &fontProps);
             }
         }
-        epd_hl_update_screen(&hl, MODE_GL16, temperature);
+        if (!clearScreen--) {
+            epd_fullclear(&hl, temperature);
+            clearScreen = CLEAR_MONITOR_CYCLES;
+        } else epd_hl_update_screen(&hl, MODE_GL16, temperature);
         delay(MONITOR_UPDATE_PERIOD_MS);
     }
 }

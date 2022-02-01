@@ -24,7 +24,7 @@
 #define MONITOR_SLOT_3 { 470, 917 }
 
 #define WAVEFORM EPD_BUILTIN_WAVEFORM
-#define CLEAR_MONITOR_CYCLES_INTERVAL 4000
+#define CLEAR_MONITOR_CYCLES_INTERVAL 600
 
 enum MetricType { SPEED, ANGLE };
 
@@ -51,7 +51,7 @@ struct MonitorMetric {
 EpdFontProperties fontProps = epd_font_properties_default();
 EpdRotation orientation = EPD_ROT_PORTRAIT;
 EpdiyHighlevelState hl;
-int temperature = 25;
+int temperature = 40;
 uint8_t *fb;
 
 class ModuleCallbacks: public SailtrackModuleCallbacks {

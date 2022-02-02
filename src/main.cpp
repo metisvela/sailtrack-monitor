@@ -1,12 +1,12 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include "epd_driver.h"
-#include "epd_highlevel.h"
+#include <epd_driver.h>
+#include <epd_highlevel.h>
 #include "DSEG14Classic_Regular_100.h"
 #include "BebasNeue_Regular_40.h"
 #include "SailtrackLogo.h"
 #include "MetisLogo.h"
-#include "SailtrackModule.h"
+#include <SailtrackModule.h>
 
 #define BATTERY_ADC_PIN 36
 #define BATTERY_ADC_MULTIPLIER 1.7

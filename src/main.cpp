@@ -48,6 +48,8 @@ struct MonitorMetric {
     {0, "sensor/imu0", "euler.y", "RLL", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_3}
 };
 
+SailtrackModule STM;
+
 EpdFontProperties fontProps = epd_font_properties_default();
 EpdRotation orientation = EPD_ROT_PORTRAIT;
 EpdiyHighlevelState hl;
@@ -137,10 +139,10 @@ void beginEPD() {
 
 void setup() {
     beginEPD();
-    STModule.begin("monitor", "sailtrack-monitor", IPAddress(192,168,42,103));
-    STModule.setCallbacks(new ModuleCallbacks());
+    STM.setCallbacks(new ModuleCallbacks());
+    STM.begin("monitor", IPAddress(192, 168, 42, 103));
     for (auto metric : monitorMetrics)
-        STModule.subscribe(metric.topic);
+        STM.subscribe(metric.topic);
     xTaskCreate(monitorTask, "monitor_task", TASK_MEDIUM_STACK_SIZE, NULL, TASK_MEDIUM_PRIORITY, NULL);
 }
 

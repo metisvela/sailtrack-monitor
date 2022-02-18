@@ -131,7 +131,7 @@ void beginEPD() {
     epd_poweron();
     if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
         epd_clear();
-        epd_draw_rotated_image({130, 340, SailtrackLogo_width, SailtrackLogo_height}, SailtrackLogo_data, fb);
+        epd_draw_rotated_image({130, 320, SailtrackLogo_width, SailtrackLogo_height}, SailtrackLogo_data, fb);
         epd_draw_rotated_image({203, 880, MetisLogo_width, MetisLogo_height}, MetisLogo_data, fb);
         epd_hl_update_screen(&hl, MODE_GL16, temperature);
     }

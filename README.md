@@ -1,2 +1,2 @@
 # SailTrack Monitor
-Repository containing the code of the monitor module of the SailTrack system.
+On board monitor of the SailTrack system for visualizing real time data for the crew.

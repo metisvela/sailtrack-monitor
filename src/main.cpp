@@ -1,16 +1,19 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
+#include <Wire.h>
+#include <SailtrackModule.h>
 #include <epd_driver.h>
 #include <epd_highlevel.h>
-#include "DSEG14Classic_Regular_100.h"
-#include "SignsPlus.h"
-#include "SignsMinus.h"
-#include "Roboto_Bold_40.h"
-#include "SailtrackLogo.h"
-#include <SailtrackModule.h>
+#include "fonts/DSEG14Classic_Regular_100.h"
+#include "fonts/Roboto_Bold_40.h"
+#include "images/SailtrackLogo.h"
+#include "images/SignsMinus.h"
+#include "images/SignsPlus.h"
 
 #define BATTERY_ADC_PIN 36
-#define BATTERY_ADC_MULTIPLIER 1.7
+#define BATTERY_ADC_RESOLUTION 4095
+#define BATTERY_ADC_REF_VOLTAGE 1.1
+#define BATTERY_ESP32_REF_VOLTAGE 3.3
+#define BATTERY_NUM_READINGS 32
 
 #define IDENTITY_MULTIPLIER 1
 #define MMS_TO_KNOTS_MULTIPLIER 0.00194384
@@ -36,19 +39,19 @@ struct MonitorSlot {
 struct MonitorMetric {
     float value;
     char topic[20];
-    char name[10];
+    char name[30];
     char displayName[10];
     double multiplier;
     MetricType type;
     MonitorSlot slot;
 } monitorMetrics[] = {
-    {0, "sensor/gps0", "speed", "SOG", MMS_TO_KNOTS_MULTIPLIER, SPEED, MONITOR_SLOT_0},
-    {0, "sensor/gps0", "heading", "COG", UDEGREE_TO_DEGREE_MULTIPLIER, ANGLE, MONITOR_SLOT_1},
-    {0, "sensor/imu0", "euler.x", "HDG", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_2},
-    {0, "sensor/imu0", "euler.y", "RLL", IDENTITY_MULTIPLIER, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3}
+    { 0, "sensor/gps0", "speed", "SOG", MMS_TO_KNOTS_MULTIPLIER, SPEED, MONITOR_SLOT_0 },
+    { 0, "sensor/gps0", "heading", "COG", UDEGREE_TO_DEGREE_MULTIPLIER, ANGLE, MONITOR_SLOT_1 },
+    { 0, "sensor/imu0", "orientation.heading", "HDG", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_2 },
+    { 0, "sensor/imu0", "orientation.roll", "RLL", IDENTITY_MULTIPLIER, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
 };
 
-SailtrackModule STM;
+SailtrackModule stm;
 
 EpdFontProperties fontProps = epd_font_properties_default();
 EpdRotation orientation = EPD_ROT_PORTRAIT;
@@ -58,22 +61,27 @@ int updateCycles = 0;
 uint8_t *fb;
 
 class ModuleCallbacks: public SailtrackModuleCallbacks {
-	DynamicJsonDocument getStatus() {
-		DynamicJsonDocument payload(300);
-		JsonObject battery = payload.createNestedObject("battery");
-		JsonObject cpu = payload.createNestedObject("cpu");
-		battery["voltage"] = analogRead(BATTERY_ADC_PIN) * BATTERY_ADC_MULTIPLIER / 1000;
+	DynamicJsonDocument * getStatus() {
+        DynamicJsonDocument * payload = new DynamicJsonDocument(300);
+		JsonObject battery = payload->createNestedObject("battery");
+		JsonObject cpu = payload->createNestedObject("cpu");
+		float avg = 0;
+		for (int i = 0; i < BATTERY_NUM_READINGS; i++) {
+			avg += analogRead(BATTERY_ADC_PIN) / BATTERY_NUM_READINGS;
+			delay(20);
+		}
+		battery["voltage"] = 2 * avg / BATTERY_ADC_RESOLUTION * BATTERY_ESP32_REF_VOLTAGE * BATTERY_ADC_REF_VOLTAGE;
 		cpu["temperature"] = temperatureRead();
 		return payload;
 	}
 
     void onMqttMessage(const char * topic, const char * message) {
-        DynamicJsonDocument payload(500);
-        deserializeJson(payload, message);
-        for (int i = 0; i < sizeof(monitorMetrics); i++) {
+        for (int i = 0; i < sizeof(monitorMetrics)/sizeof(*monitorMetrics); i++) {
             MonitorMetric & metric = monitorMetrics[i];
             if (!strcmp(topic, metric.topic)) {
-                char metricName[sizeof(metric.name)];
+                DynamicJsonDocument payload(500);
+                deserializeJson(payload, message);
+                char metricName[strlen(metric.name)+1];
                 strcpy(metricName, metric.name);
                 char * token = strtok(metricName, ".");
                 JsonVariant tmpVal = payload.as<JsonVariant>();
@@ -103,11 +111,12 @@ void beginEPD() {
 
 void setup() {
     beginEPD();
-    STM.begin("monitor", IPAddress(192, 168, 42, 103), new ModuleCallbacks());
+    stm.begin("monitor", IPAddress(192, 168, 42, 103), new ModuleCallbacks());
     for (auto metric : monitorMetrics)
-        STM.subscribe(metric.topic);
+        stm.subscribe(metric.topic);
 }
 
+TickType_t lastWakeTime = xTaskGetTickCount();
 void loop() { 
     epd_hl_set_all_white(&hl);
     for (auto metric : monitorMetrics) {
@@ -142,5 +151,6 @@ void loop() {
     }
     epd_hl_update_screen(&hl, updateCycles ? MODE_GL16 : MODE_EPDIY_WHITE_TO_GL16, temperature);
     updateCycles = (updateCycles + 1) % CLEAR_MONITOR_CYCLES_INTERVAL;
-    delay(1000 / MONITOR_UPDATE_RATE);
+
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000 / MONITOR_UPDATE_RATE));
 }

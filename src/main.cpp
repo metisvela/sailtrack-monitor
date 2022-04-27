@@ -9,25 +9,30 @@
 #include "images/SignsMinus.h"
 #include "images/SignsPlus.h"
 
-#define BATTERY_ADC_PIN 36
-#define BATTERY_ADC_RESOLUTION 4095
-#define BATTERY_ADC_REF_VOLTAGE 1.1
-#define BATTERY_ESP32_REF_VOLTAGE 3.3
-#define BATTERY_NUM_READINGS 32
+// -------------------------- Configuration -------------------------- //
 
-#define IDENTITY_MULTIPLIER 1
-#define MMS_TO_KNOTS_MULTIPLIER 0.00194384
-#define UDEGREE_TO_DEGREE_MULTIPLIER 1e-5
+#define MONITOR_UPDATE_FREQ_HZ          2
 
-#define MONITOR_UPDATE_RATE 2
+#define BATTERY_ADC_PIN                 36
+#define BATTERY_ADC_RESOLUTION          4095
+#define BATTERY_ADC_REF_VOLTAGE         1.1
+#define BATTERY_ESP32_REF_VOLTAGE       3.3
+#define BATTERY_NUM_READINGS            32
+#define BATTERY_READING_DELAY_MS	    20
 
-#define MONITOR_SLOT_0 { 470, 227 }
-#define MONITOR_SLOT_1 { 470, 454 }
-#define MONITOR_SLOT_2 { 470, 681 }
-#define MONITOR_SLOT_3 { 470, 908 }
+#define MULTIPLIER_IDENTITY             1
+#define MULTIPLIER_MMS_TO_KNOTS         0.00194384
+#define MULTIPLIER_UDEGREE_TO_DEGREE    1e-5
 
-#define WAVEFORM EPD_BUILTIN_WAVEFORM
-#define CLEAR_MONITOR_CYCLES_INTERVAL 600
+#define MONITOR_SLOT_0                  { 470, 227 }
+#define MONITOR_SLOT_1                  { 470, 454 }
+#define MONITOR_SLOT_2                  { 470, 681 }
+#define MONITOR_SLOT_3                  { 470, 908 }
+#define MONITOR_WAVEFORM                EPD_BUILTIN_WAVEFORM
+#define MONITOR_CLEAR_INTERVAL_UPDATES  600
+#define MONITOR_TEMPERATURE_CELSIUS     40
+
+#define LOOP_TASK_DELAY_MS              1000 / MONITOR_UPDATE_FREQ_HZ
 
 enum MetricType { SPEED, ANGLE, ANGLE_ZERO_CENTERED };
 
@@ -38,41 +43,38 @@ struct MonitorSlot {
 
 struct MonitorMetric {
     float value;
-    char topic[20];
-    char name[30];
-    char displayName[10];
+    char topic[32];
+    char name[32];
+    char displayName[8];
     double multiplier;
     MetricType type;
     MonitorSlot slot;
 } monitorMetrics[] = {
-    { 0, "sensor/gps0", "speed", "SOG", MMS_TO_KNOTS_MULTIPLIER, SPEED, MONITOR_SLOT_0 },
-    { 0, "sensor/gps0", "heading", "COG", UDEGREE_TO_DEGREE_MULTIPLIER, ANGLE, MONITOR_SLOT_1 },
-    { 0, "sensor/imu0", "orientation.heading", "HDG", IDENTITY_MULTIPLIER, ANGLE, MONITOR_SLOT_2 },
-    { 0, "sensor/imu0", "orientation.roll", "RLL", IDENTITY_MULTIPLIER, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
+    { 0, "sensor/gps0", "speed", "SOG", MULTIPLIER_MMS_TO_KNOTS, SPEED, MONITOR_SLOT_0 },
+    { 0, "sensor/gps0", "heading", "COG", MULTIPLIER_UDEGREE_TO_DEGREE, ANGLE, MONITOR_SLOT_1 },
+    { 0, "sensor/imu0", "orientation.heading", "HDG", MULTIPLIER_IDENTITY, ANGLE, MONITOR_SLOT_2 },
+    { 0, "sensor/imu0", "orientation.roll", "RLL", MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
 };
+
+// ------------------------------------------------------------------- //
 
 SailtrackModule stm;
 
 EpdFontProperties fontProps = epd_font_properties_default();
 EpdRotation orientation = EPD_ROT_PORTRAIT;
 EpdiyHighlevelState hl;
-int temperature = 40;
 int updateCycles = 0;
 uint8_t *fb;
 
 class ModuleCallbacks: public SailtrackModuleCallbacks {
-	DynamicJsonDocument * getStatus() {
-        DynamicJsonDocument * payload = new DynamicJsonDocument(300);
-		JsonObject battery = payload->createNestedObject("battery");
-		JsonObject cpu = payload->createNestedObject("cpu");
+    void onStatusPublish(JsonObject status) {
+		JsonObject battery = status.createNestedObject("battery");
 		float avg = 0;
 		for (int i = 0; i < BATTERY_NUM_READINGS; i++) {
 			avg += analogRead(BATTERY_ADC_PIN) / BATTERY_NUM_READINGS;
-			delay(20);
+			delay(BATTERY_READING_DELAY_MS);
 		}
 		battery["voltage"] = 2 * avg / BATTERY_ADC_RESOLUTION * BATTERY_ESP32_REF_VOLTAGE * BATTERY_ADC_REF_VOLTAGE;
-		cpu["temperature"] = temperatureRead();
-		return payload;
 	}
 
     void onMqttMessage(const char * topic, const char * message) {
@@ -98,14 +100,14 @@ class ModuleCallbacks: public SailtrackModuleCallbacks {
 
 void beginEPD() {
     epd_init(EPD_OPTIONS_DEFAULT);
-    hl = epd_hl_init(WAVEFORM);
+    hl = epd_hl_init(MONITOR_WAVEFORM);
     epd_set_rotation(orientation);
     fb = epd_hl_get_framebuffer(&hl);
     epd_poweron();
     if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
         epd_clear();
         epd_draw_rotated_image({130, 350, SailtrackLogo_width, SailtrackLogo_height}, SailtrackLogo_data, fb);
-        epd_hl_update_screen(&hl, MODE_GL16, temperature);
+        epd_hl_update_screen(&hl, MODE_GL16, MONITOR_TEMPERATURE_CELSIUS);
     }
 }
 
@@ -116,12 +118,13 @@ void setup() {
         stm.subscribe(metric.topic);
 }
 
-TickType_t lastWakeTime = xTaskGetTickCount();
 void loop() { 
+    TickType_t lastWakeTime = xTaskGetTickCount();
+
     epd_hl_set_all_white(&hl);
     for (auto metric : monitorMetrics) {
-        char digits[4];
-        char displayName[6];
+        char digits[8];
+        char displayName[8];
         int cursorX;
         int cursorY;
 
@@ -149,8 +152,8 @@ void loop() {
         epd_clear();
         epd_hl_set_all_white(&hl);
     }
-    epd_hl_update_screen(&hl, updateCycles ? MODE_GL16 : MODE_EPDIY_WHITE_TO_GL16, temperature);
-    updateCycles = (updateCycles + 1) % CLEAR_MONITOR_CYCLES_INTERVAL;
+    epd_hl_update_screen(&hl, updateCycles ? MODE_GL16 : MODE_EPDIY_WHITE_TO_GL16, MONITOR_TEMPERATURE_CELSIUS);
+    updateCycles = (updateCycles + 1) % MONITOR_CLEAR_INTERVAL_UPDATES;
 
-    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000 / MONITOR_UPDATE_RATE));
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(LOOP_TASK_DELAY_MS));
 }

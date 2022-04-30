@@ -50,8 +50,8 @@ struct MonitorMetric {
     MetricType type;
     MonitorSlot slot;
 } monitorMetrics[] = {
-    { 0, "sensor/gps0", "speed", "SOG", MULTIPLIER_MMS_TO_KNOTS, SPEED, MONITOR_SLOT_0 },
-    { 0, "sensor/gps0", "heading", "COG", MULTIPLIER_UDEGREE_TO_DEGREE, ANGLE, MONITOR_SLOT_1 },
+    { 0, "sensor/gps0", "gSpeed", "SOG", MULTIPLIER_MMS_TO_KNOTS, SPEED, MONITOR_SLOT_0 },
+    { 0, "sensor/gps0", "headMot", "COG", MULTIPLIER_UDEGREE_TO_DEGREE, ANGLE, MONITOR_SLOT_1 },
     { 0, "sensor/imu0", "orientation.heading", "HDG", MULTIPLIER_IDENTITY, ANGLE, MONITOR_SLOT_2 },
     { 0, "sensor/imu0", "orientation.roll", "RLL", MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
 };

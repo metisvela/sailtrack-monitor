@@ -32,7 +32,7 @@
 #define MONITOR_CLEAR_INTERVAL_UPDATES  600
 #define MONITOR_TEMPERATURE_CELSIUS     40
 
-#define LOOP_TASK_DELAY_MS              1000 / MONITOR_UPDATE_FREQ_HZ
+#define LOOP_TASK_INTERVAL_MS           1000 / MONITOR_UPDATE_FREQ_HZ
 
 enum MetricType { SPEED, ANGLE, ANGLE_ZERO_CENTERED };
 
@@ -155,5 +155,5 @@ void loop() {
     epd_hl_update_screen(&hl, updateCycles ? MODE_GL16 : MODE_EPDIY_WHITE_TO_GL16, MONITOR_TEMPERATURE_CELSIUS);
     updateCycles = (updateCycles + 1) % MONITOR_CLEAR_INTERVAL_UPDATES;
 
-    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(LOOP_TASK_DELAY_MS));
+    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(LOOP_TASK_INTERVAL_MS));
 }

@@ -52,8 +52,8 @@ struct MonitorMetric {
 } monitorMetrics[] = {
     { 0, "sensor/gps0", "gSpeed", "SOG", MULTIPLIER_MMS_TO_KNOTS, SPEED, MONITOR_SLOT_0 },
     { 0, "sensor/gps0", "headMot", "COG", MULTIPLIER_UDEGREE_TO_DEGREE, ANGLE, MONITOR_SLOT_1 },
-    { 0, "sensor/imu0", "orientation.heading", "HDG", MULTIPLIER_IDENTITY, ANGLE, MONITOR_SLOT_2 },
-    { 0, "sensor/imu0", "orientation.roll", "RLL", MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
+    { 0, "metric/boat", "heading", "HDG", MULTIPLIER_IDENTITY, ANGLE, MONITOR_SLOT_2 },
+    { 0, "metric/boat", "roll", "RLL", MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
 };
 
 // ------------------------------------------------------------------- //
@@ -87,12 +87,13 @@ class ModuleCallbacks: public SailtrackModuleCallbacks {
                 strcpy(metricName, metric.name);
                 char * token = strtok(metricName, ".");
                 JsonVariant tmpVal = payload.as<JsonVariant>();
-                while (token != NULL) {
-                    if (!tmpVal.containsKey(token)) return;
+                while (token) {
+                    if (!tmpVal.containsKey(token)) break;
                     tmpVal = tmpVal[token];
                     token = strtok(NULL, ".");
                 }
-                metric.value = tmpVal.as<float>() * metric.multiplier;   
+                if (!token)
+                    metric.value = tmpVal.as<float>() * metric.multiplier;   
             }
         }
     }

@@ -20,9 +20,7 @@
 #define BATTERY_NUM_READINGS            32
 #define BATTERY_READING_DELAY_MS	    20
 
-#define MULTIPLIER_IDENTITY             1
-#define MULTIPLIER_MMS_TO_KNOTS         0.00194384
-#define MULTIPLIER_UDEGREE_TO_DEGREE    1e-5
+#define METRIC_MULTIPLIER_IDENTITY      1
 
 #define MONITOR_SLOT_0                  { 470, 227 }
 #define MONITOR_SLOT_1                  { 470, 454 }
@@ -50,10 +48,10 @@ struct MonitorMetric {
     MetricType type;
     MonitorSlot slot;
 } monitorMetrics[] = {
-    { 0, "sensor/gps0", "gSpeed", "SOG", MULTIPLIER_MMS_TO_KNOTS, SPEED, MONITOR_SLOT_0 },
-    { 0, "sensor/gps0", "headMot", "COG", MULTIPLIER_UDEGREE_TO_DEGREE, ANGLE, MONITOR_SLOT_1 },
-    { 0, "metric/boat", "heading", "HDG", MULTIPLIER_IDENTITY, ANGLE, MONITOR_SLOT_2 },
-    { 0, "metric/boat", "roll", "RLL", MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
+    { 0, "metric/boat", "sog", "SOG", METRIC_MULTIPLIER_IDENTITY, SPEED, MONITOR_SLOT_0 },
+    { 0, "metric/boat", "cog", "COG", METRIC_MULTIPLIER_IDENTITY, ANGLE, MONITOR_SLOT_1 },
+    { 0, "metric/boat", "heading", "HDG", METRIC_MULTIPLIER_IDENTITY, ANGLE, MONITOR_SLOT_2 },
+    { 0, "metric/boat", "roll", "RLL", METRIC_MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
 };
 
 // ------------------------------------------------------------------- //
@@ -77,16 +75,14 @@ class ModuleCallbacks: public SailtrackModuleCallbacks {
 		battery["voltage"] = 2 * avg / BATTERY_ADC_RESOLUTION * BATTERY_ESP32_REF_VOLTAGE * BATTERY_ADC_REF_VOLTAGE;
 	}
 
-    void onMqttMessage(const char * topic, const char * message) {
+    void onMqttMessage(const char * topic, JsonObjectConst message) {
         for (int i = 0; i < sizeof(monitorMetrics)/sizeof(*monitorMetrics); i++) {
             MonitorMetric & metric = monitorMetrics[i];
             if (!strcmp(topic, metric.topic)) {
-                DynamicJsonDocument payload(500);
-                deserializeJson(payload, message);
                 char metricName[strlen(metric.name)+1];
                 strcpy(metricName, metric.name);
                 char * token = strtok(metricName, ".");
-                JsonVariant tmpVal = payload.as<JsonVariant>();
+                JsonVariantConst tmpVal = message;
                 while (token) {
                     if (!tmpVal.containsKey(token)) break;
                     tmpVal = tmpVal[token];
@@ -123,7 +119,8 @@ void loop() {
     TickType_t lastWakeTime = xTaskGetTickCount();
 
     epd_hl_set_all_white(&hl);
-    for (auto metric : monitorMetrics) {
+    for (int i = 0; i < sizeof(monitorMetrics)/sizeof(*monitorMetrics); i++) {
+        MonitorMetric & metric = monitorMetrics[i];
         char digits[8];
         char displayName[8];
         int cursorX;
@@ -138,6 +135,7 @@ void loop() {
         }
 
         sprintf(digits, metric.type == SPEED ? "%.1f" : "%.0f", metric.value);
+        metric.value = 0;
         fontProps.flags = EPD_DRAW_ALIGN_RIGHT;
         cursorX = metric.slot.cursorX;
         cursorY = metric.slot.cursorY;

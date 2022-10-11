@@ -49,8 +49,8 @@ struct MonitorMetric {
     MonitorSlot slot;
 } monitorMetrics[] = {
     { 0, "boat", "sog", "SOG", METRIC_MULTIPLIER_IDENTITY, SPEED, MONITOR_SLOT_0 },
-    { 0, "boat", "drift", "DRF", METRIC_MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_1 },
-    { 0, "boat", "pitch", "PTH", METRIC_MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_2 },
+    { 0, "boat", "drift", "DFT", METRIC_MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_1 },
+    { 0, "boat", "pitch", "PTC", METRIC_MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_2 },
     { 0, "boat", "roll", "RLL", METRIC_MULTIPLIER_IDENTITY, ANGLE_ZERO_CENTERED, MONITOR_SLOT_3 }
 };
 

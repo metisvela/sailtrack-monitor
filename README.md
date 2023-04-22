@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/metis-vela-unipd/sailtrack-docs/main/Assets/SailTrack%20Logo.svg" width="180">
+  <img src="https://raw.githubusercontent.com/metis-vela-unipd/sailtrack/main/Assets/SailTrack%20Logo.svg" width="180">
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
 
 # SailTrack Monitor
 
-SailTrack Moitor is a component of the SailTrack system, it displays data to the onboard crew using the e-paper technology in order to achieve the best readability under bad sunlight conditions. To learn more about the SailTrack project, please visit the [documentation repository](https://github.com/metis-vela-unipd/sailtrack-docs).
+SailTrack Moitor is a component of the SailTrack system, it displays data to the onboard crew using the e-paper technology in order to achieve the best readability under bad sunlight conditions. To learn more about the SailTrack project, please visit the [project repository](https://github.com/metis-vela-unipd/sailtrack).
 
 The SailTrack Monitor module is based on a battery powered LilyGo EPD47, consisting of an [ESP32](https://www.espressif.com/en/products/socs/esp32) microcontroller, connected to an e-paper display. For a more detailed hardware description of the module, please refer to the [Bill Of Materials](hardware/BOM.csv). The 3D-printable enclosure con be found [here](hardware/STL).
 
@@ -53,4 +53,4 @@ Contributors are welcome. If you are a student of the University of Padua, pleas
 
 ## License
 
-Copyright © 2022, [Métis Vela Unipd](https://github.com/metis-vela-unipd). SailTrack Monitor is available under the [GPL-3.0 license](https://www.gnu.org/licenses/gpl-3.0.en.html). See the LICENSE file for more info.
+Copyright © 2023, [Métis Vela Unipd](https://github.com/metis-vela-unipd). SailTrack Monitor is available under the [GPL-3.0 license](https://www.gnu.org/licenses/gpl-3.0.en.html). See the LICENSE file for more info.
